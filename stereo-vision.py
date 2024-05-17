@@ -33,30 +33,59 @@ def parse_user_data() :
     args = parser.parse_args()
     return args
 
-def load_image(img):
-
+def image_load(img):
+    """
+    load an image from a specified file path.
+    
+    input: 
+        img - string path to the image file
+    output: 
+        img - loaded image object or None if file not found or format unsupported
+    """
     img = cv2.imread(img)
     if img is None:
         print(f"File not found or unsupported format: {img}")
         return None
     return img
 
-def resize_image(img):
-
+def image_resize(img):
+    """
+    resize an image to its original size.
+    
+    input: 
+        img - image object
+    output: 
+        img_resize - resized image object
+    """
     width = int(img.shape[1] * 1) 
     height = int(img.shape[0] * 1)
     img_resize = cv2.resize(img, (width, height), interpolation=cv2.INTER_AREA)
     return img_resize
 
-def visualise_image(img, title):
+def image_visualise(img, title):
+    """
+    display an image with a specified title.
 
-    img_resize = resize_image(img) 
+    input: 
+        img - image object
+        title - string title for the image window
+    output: 
+        none
+    """
+    img_resize = image_resize(img) 
     cv2.imshow(title, img_resize)
     if True:
         cv2.waitKey(0)
 
-def load_camera_calibration(calibration_file):
-
+def load_calibration_data(calibration_file):
+    """
+    load camera calibration parameters from a json file.
+    
+    input: 
+        calibration_file - string path to the json file containing calibration data
+    output: 
+        calibration_data - dictionary containing calibration parameters
+    """
     try:
         with open(calibration_file, 'r') as file:
             calibration_data = json.load(file)
@@ -69,7 +98,14 @@ def load_camera_calibration(calibration_file):
         return None
 
 def point_selection(img):
-
+    """
+    allow user to manually select points on an image.
+    
+    input: 
+        img - image object on which points are to be selected
+    output: 
+        points - array of selected points
+    """
     title = 'Point Selection on Left Image'
     fig, ax = plt.subplots()
     ax.imshow(img, cmap='gray')
@@ -78,8 +114,19 @@ def point_selection(img):
     plt.close(fig)
     return points
 
-def show_and_select_points(left_image, left_points , right_image):
-
+def match_and_select_points(left_image, left_points , right_image):
+    """
+    display selected points from the left image on the right image and allow 
+    additional point selection.
+    
+    input: 
+        l_img - left image object
+        left_points - array of points selected on the left image
+        r_img - right image object
+    output: 
+        right_points - array of points selected on the right image corresponding 
+        to the left points
+    """
     fig, axs = plt.subplots(1, 2, figsize=(10, 5))
     axs[0].imshow(left_image, cmap='gray')
     axs[0].plot(left_points[:, 0], left_points[:, 1], 'ro', markersize=1.5)
@@ -96,8 +143,16 @@ def show_and_select_points(left_image, left_points , right_image):
         return None
     return right_points
 
-def calculate_3d_coordinates(left_pts, right_pts):
+def compute_3d_coordinates(left_pts, right_pts):
+    """
+    calculate 3d coordinates from stereo image points based on disparity.
 
+    input: 
+        left_pts - array of points from left image
+        right_pts - array of points from right image
+    output: 
+        coordinates - array of calculated 3d coordinates
+    """
     try:
         disparity = left_pts[:, 0] - right_pts[:, 0]
         Z = np.where(disparity != 0, (f * B) / disparity, np.inf)
@@ -115,7 +170,7 @@ def close_windows() -> None:
 def pipeline():
     global B, f, cx, cy 
 
-    calibration_data = load_camera_calibration('calibration-parameters.txt')
+    calibration_data = load_calibration_data('calibration-parameters.txt')
 
     B = abs(float(calibration_data['baseline']))
     f = float(calibration_data['rectified_fx'])
@@ -123,16 +178,16 @@ def pipeline():
     cy = float(calibration_data['rectified_cy'])
     
     user_input =  parse_user_data()
-    l_img = load_image(user_input.l_img)
-    r_img = load_image(user_input.r_img)
+    l_img = image_load(user_input.l_img)
+    r_img = image_load(user_input.r_img)
 
-    visualise_image(l_img,"Left Image")
-    visualise_image(r_img,"Right Image")
+    image_visualise(l_img,"Left Image")
+    image_visualise(r_img,"Right Image")
     close_windows()
 
     left_points = point_selection(l_img)
-    right_points = show_and_select_points(l_img, left_points, r_img)
-    coordinates_3d = calculate_3d_coordinates(left_points, right_points)
+    right_points = match_and_select_points(l_img, left_points, r_img)
+    coordinates_3d = compute_3d_coordinates(left_points, right_points)
 
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
